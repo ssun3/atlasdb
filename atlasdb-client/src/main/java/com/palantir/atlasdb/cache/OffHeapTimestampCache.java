@@ -20,8 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
@@ -62,7 +60,6 @@ public final class OffHeapTimestampCache implements TimestampCache {
     private final LongSupplier maxSize;
     private final AtomicReference<CacheDescriptor> cacheDescriptor = new AtomicReference<>();
     private final TaggedMetricRegistry taggedMetricRegistry;
-    private final ConcurrentMap<Long, Long> inflightRequests = new ConcurrentHashMap<>();
     private final DisruptorAutobatcher<Map.Entry<Long, Long>, Void> timestampPutter;
 
     public static TimestampCache create(
@@ -113,9 +110,6 @@ public final class OffHeapTimestampCache implements TimestampCache {
 
     @Override
     public void putAlreadyCommittedTransaction(Long startTimestamp, Long commitTimestamp) {
-        if (inflightRequests.putIfAbsent(startTimestamp, commitTimestamp) != null) {
-            return;
-        }
         Futures.getUnchecked(timestampPutter.apply(Maps.immutableEntry(startTimestamp, commitTimestamp)));
     }
 
@@ -133,11 +127,6 @@ public final class OffHeapTimestampCache implements TimestampCache {
     }
 
     private Optional<Long> getCommitTimestamp(Long startTimestamp) {
-        Long inFlight = inflightRequests.get(startTimestamp);
-        if (inFlight != null) {
-            return Optional.of(inFlight);
-        }
-
         return timestampStore.get(cacheDescriptor.get().handle(), startTimestamp);
     }
 
@@ -180,8 +169,6 @@ public final class OffHeapTimestampCache implements TimestampCache {
             } catch (SafeIllegalArgumentException exception) {
                 // happens when a store is dropped by a concurrent call to clear
                 log.warn("Clear called concurrently, writing failed", exception);
-            } finally {
-                offHeapTimestampCache.inflightRequests.clear();
             }
             return KeyedStream.of(request.stream()).<Void>map(value -> null).collectToMap();
         }
