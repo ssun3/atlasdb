@@ -50,7 +50,7 @@ public final class RocksDbOffHeapTimestampCacheIntegrationTests {
 
         persistentStore = new RocksDbPersistentStore(rocksDb, databaseFolder);
 
-        offHeapTimestampCache = DefaultOffHeapCache.create(
+        offHeapTimestampCache = OffHeapTimestampCache.create(
                 persistentStore,
                 MetricsManagers.createForTests().getTaggedRegistry(),
                 () -> CACHE_SIZE);

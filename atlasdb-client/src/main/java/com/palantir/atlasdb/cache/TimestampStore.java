@@ -35,7 +35,7 @@ import okio.ByteString;
 /**
  * Stores timestamps using delta encoding for commit timestamp.
  */
-public class TimestampStore implements PersistentStore<Long, Long> {
+public final class TimestampStore implements PersistentStore<Long, Long> {
     private final PersistentStore<ByteString, ByteString> persistentStore;
 
     public TimestampStore(PersistentStore<ByteString, ByteString> persistentStore) {

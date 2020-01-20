@@ -46,8 +46,8 @@ import com.palantir.async.initializer.AsyncInitializer;
 import com.palantir.async.initializer.Callback;
 import com.palantir.async.initializer.LambdaCallback;
 import com.palantir.atlasdb.AtlasDbConstants;
-import com.palantir.atlasdb.cache.DefaultOffHeapCache;
 import com.palantir.atlasdb.cache.DefaultTimestampCache;
+import com.palantir.atlasdb.cache.OffHeapTimestampCache;
 import com.palantir.atlasdb.cache.TimestampCache;
 import com.palantir.atlasdb.cleaner.CleanupFollower;
 import com.palantir.atlasdb.cleaner.DefaultCleanerBuilder;
@@ -537,10 +537,17 @@ public abstract class TransactionManagers {
         LongSupplier cacheSize = () -> runtimeConfig.get().getTimestampCacheSize();
         Supplier<TimestampCache> timestampCacheSupplier = () ->
                 timestampStore.map(store ->
-                        DefaultOffHeapCache.create(store, metricsManager.getTaggedRegistry(), cacheSize))
+                        constructOffHeapTimestampCache(store, metricsManager, cacheSize))
                         .orElseGet(() -> new DefaultTimestampCache(metricsManager.getRegistry(), cacheSize));
 
         return config.timestampCache().orElseGet(timestampCacheSupplier);
+    }
+
+    private static TimestampCache constructOffHeapTimestampCache(
+            PersistentStore<ByteString, ByteString> store,
+            MetricsManager metricsManager,
+            LongSupplier cacheSize) {
+        return OffHeapTimestampCache.create(store, metricsManager.getTaggedRegistry(), cacheSize);
     }
 
     private static TimestampCache instrumentedTimestampCache(
