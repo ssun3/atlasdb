@@ -77,8 +77,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.palantir.atlasdb.AtlasDbConstants;
-import com.palantir.atlasdb.cache.DefaultOffHeapCache;
 import com.palantir.atlasdb.cache.DefaultTimestampCache;
+import com.palantir.atlasdb.cache.OffHeapTimestampCache;
 import com.palantir.atlasdb.cache.TimestampCache;
 import com.palantir.atlasdb.config.AtlasDbConfig;
 import com.palantir.atlasdb.config.AtlasDbRuntimeConfig;
@@ -776,7 +776,7 @@ public class TransactionManagersTest {
 
         TimestampCache timestampCache = constructTimestampCache(installConfig, persistentStore);
 
-        assertThat(timestampCache).isInstanceOf(DefaultOffHeapCache.class);
+        assertThat(timestampCache).isInstanceOf(OffHeapTimestampCache.class);
     }
 
     @Test
