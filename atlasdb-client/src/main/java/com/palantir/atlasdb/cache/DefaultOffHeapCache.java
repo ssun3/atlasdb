@@ -48,8 +48,8 @@ import com.palantir.tritium.metrics.registry.TaggedMetricRegistry;
 
 import okio.ByteString;
 
-public final class OffHeapTimestampCache implements TimestampCache {
-    private static final Logger log = LoggerFactory.getLogger(OffHeapTimestampCache.class);
+public final class DefaultOffHeapCache implements TimestampCache {
+    private static final Logger log = LoggerFactory.getLogger(DefaultOffHeapCache.class);
     private static final String BATCHER_PURPOSE = "off-heap-timestamp-cache";
     private static final MetricName CACHE_HIT = constructCacheMetricName("cacheHit");
     private static final MetricName CACHE_MISS = constructCacheMetricName("cacheMiss");
@@ -74,14 +74,14 @@ public final class OffHeapTimestampCache implements TimestampCache {
                 .handle(handle)
                 .build();
 
-        return new OffHeapTimestampCache(
+        return new DefaultOffHeapCache(
                 timestampStore,
                 cacheDescriptor,
                 maxSize,
                 taggedMetricRegistry);
     }
 
-    private OffHeapTimestampCache(
+    private DefaultOffHeapCache(
             TimestampStore timestampStore,
             CacheDescriptor cacheDescriptor,
             LongSupplier maxSize,
@@ -93,7 +93,7 @@ public final class OffHeapTimestampCache implements TimestampCache {
         this.timestampPutter = Autobatchers.coalescing(new WriteBatcher(this))
                 .safeLoggablePurpose(BATCHER_PURPOSE)
                 .build();
-        Gauge<Integer> cacheSizeGauge = () -> OffHeapTimestampCache.this.cacheDescriptor.get().currentSize().intValue();
+        Gauge<Integer> cacheSizeGauge = () -> DefaultOffHeapCache.this.cacheDescriptor.get().currentSize().intValue();
         taggedMetricRegistry.gauge(CACHE_SIZE, cacheSizeGauge);
     }
 
@@ -140,32 +140,32 @@ public final class OffHeapTimestampCache implements TimestampCache {
 
     private static MetricName constructCacheMetricName(String metricSuffix) {
         return MetricName.builder()
-                .safeName(MetricRegistry.name(OffHeapTimestampCache.class, metricSuffix))
+                .safeName(MetricRegistry.name(DefaultOffHeapCache.class, metricSuffix))
                 .build();
     }
 
     private static class WriteBatcher implements CoalescingRequestFunction<Map.Entry<Long, Long>, Void> {
-        OffHeapTimestampCache offHeapTimestampCache;
+        DefaultOffHeapCache defaultOffHeapCache;
 
-        WriteBatcher(OffHeapTimestampCache offHeapTimestampCache) {
-            this.offHeapTimestampCache = offHeapTimestampCache;
+        WriteBatcher(DefaultOffHeapCache defaultOffHeapCache) {
+            this.defaultOffHeapCache = defaultOffHeapCache;
         }
 
         @Override
         public Map<Map.Entry<Long, Long>, Void> apply(Set<Map.Entry<Long, Long>> request) {
-            CacheDescriptor cacheDescriptor = offHeapTimestampCache.cacheDescriptor.get();
-            if (cacheDescriptor.currentSize().get() >= offHeapTimestampCache.maxSize.getAsLong()) {
-                offHeapTimestampCache.taggedMetricRegistry.counter(CACHE_NUKE).inc();
-                offHeapTimestampCache.clear();
+            CacheDescriptor cacheDescriptor = defaultOffHeapCache.cacheDescriptor.get();
+            if (cacheDescriptor.currentSize().get() >= defaultOffHeapCache.maxSize.getAsLong()) {
+                defaultOffHeapCache.taggedMetricRegistry.counter(CACHE_NUKE).inc();
+                defaultOffHeapCache.clear();
             }
-            cacheDescriptor = offHeapTimestampCache.cacheDescriptor.get();
+            cacheDescriptor = defaultOffHeapCache.cacheDescriptor.get();
             try {
                 List<Long> toWrite = request.stream().map(Map.Entry::getKey).collect(Collectors.toList());
-                Map<Long, Long> response = offHeapTimestampCache.timestampStore.get(cacheDescriptor.handle(), toWrite);
+                Map<Long, Long> response = defaultOffHeapCache.timestampStore.get(cacheDescriptor.handle(), toWrite);
 
                 int sizeIncrease = Sets.difference(request, response.entrySet()).size();
                 cacheDescriptor.currentSize().addAndGet(sizeIncrease);
-                offHeapTimestampCache.timestampStore.put(cacheDescriptor.handle(), ImmutableMap.copyOf(request));
+                defaultOffHeapCache.timestampStore.put(cacheDescriptor.handle(), ImmutableMap.copyOf(request));
             } catch (SafeIllegalArgumentException exception) {
                 // happens when a store is dropped by a concurrent call to clear
                 log.warn("Clear called concurrently, writing failed", exception);
