@@ -536,18 +536,11 @@ public abstract class TransactionManagers {
             Optional<PersistentStore<ByteString, ByteString>> timestampStore) {
         LongSupplier cacheSize = () -> runtimeConfig.get().getTimestampCacheSize();
         Supplier<TimestampCache> timestampCacheSupplier = () ->
-                timestampStore.map(store ->
-                        constructOffHeapTimestampCache(store, metricsManager, cacheSize))
+                timestampStore.map(
+                        store -> OffHeapTimestampCache.create(store, metricsManager.getTaggedRegistry(), cacheSize))
                         .orElseGet(() -> new DefaultTimestampCache(metricsManager.getRegistry(), cacheSize));
 
         return config.timestampCache().orElseGet(timestampCacheSupplier);
-    }
-
-    private static TimestampCache constructOffHeapTimestampCache(
-            PersistentStore<ByteString, ByteString> store,
-            MetricsManager metricsManager,
-            LongSupplier cacheSize) {
-        return OffHeapTimestampCache.create(store, metricsManager.getTaggedRegistry(), cacheSize);
     }
 
     private static TimestampCache instrumentedTimestampCache(
